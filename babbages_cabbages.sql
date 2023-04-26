@@ -85,11 +85,14 @@ END;
 /
 
 -- Create Tables for School Database
-CREATE TABLE department 
+CREATE TABLE bc_employees 
 (
-    department_id           NUMBER              NOT NULL,
-    department_name         VARCHAR2(50)        NOT NULL,
-    course_id               NUMBER              NOT NULL,
+    employee_id             NUMBER              NOT NULL,
+    last_name               VARCHAR2(50)        NOT NULL,
+    first_name              NUMBER              NOT NULL,
+    hours                   NUMBER              NOT NULL,
+    hourly_rate             NUMBER              NOT NULL,
+    transport_code          VARCHAR2(1)         NOT NULL,
     CONSTRAINT department_id_pk    PRIMARY KEY (department_id),
     CONSTRAINT department_name_uq  UNIQUE (department_name)
 );
