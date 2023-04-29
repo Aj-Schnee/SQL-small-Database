@@ -4,79 +4,24 @@
 --              written in Oracle PL/SQL that can compute an employee's weekly gross pay, 
 --              taxes, and net pay.
 
+-- Drop Sequence and tables for Babbage's Cabbage's
 BEGIN
     BEGIN
-        EXECUTE IMMEDIATE 'DROP SEQUENCE users_id_seq';
+        EXECUTE IMMEDIATE 'DROP SEQUENCE bc_employees_id_seq';
     EXCEPTION
         WHEN OTHERS THEN
             NULL;
     END;
 
     BEGIN
-        EXECUTE IMMEDIATE 'DROP SEQUENCE college_id_seq';
-    EXCEPTION
-        WHEN OTHERS THEN
-            NULL;
-    END;
-    
-    BEGIN
-        EXECUTE IMMEDIATE 'DROP TABLE degree';
-    EXCEPTION
-        WHEN OTHERS THEN
-            NULL;
-    END;
-    
-    BEGIN
-        EXECUTE IMMEDIATE 'DROP TABLE lecture';
-    EXCEPTION
-        WHEN OTHERS THEN
-            NULL;
-    END;
-    
-    BEGIN
-        EXECUTE IMMEDIATE 'DROP TABLE course';
-    EXCEPTION
-        WHEN OTHERS THEN
-            NULL;
-    END;
-    
-    BEGIN
-        EXECUTE IMMEDIATE 'DROP TABLE forms';
-    EXCEPTION
-        WHEN OTHERS THEN
-            NULL;
-    END;
-    
-    BEGIN
-        EXECUTE IMMEDIATE 'DROP TABLE users';
-    EXCEPTION
-        WHEN OTHERS THEN
-            NULL;
-    END;
-    
-    BEGIN
-        EXECUTE IMMEDIATE 'DROP TABLE college';
-    EXCEPTION
-        WHEN OTHERS THEN
-            NULL;
-    END;
-    
-    BEGIN
-        EXECUTE IMMEDIATE 'DROP TABLE affiliation';
+        EXECUTE IMMEDIATE 'DROP TABLE bc_payroll';
     EXCEPTION
         WHEN OTHERS THEN
             NULL;
     END;
 
     BEGIN
-        EXECUTE IMMEDIATE 'DROP TABLE program';
-    EXCEPTION
-        WHEN OTHERS THEN
-            NULL;
-    END;
-
-    BEGIN
-        EXECUTE IMMEDIATE 'DROP TABLE department';
+        EXECUTE IMMEDIATE 'DROP TABLE bc_employees';
     EXCEPTION
         WHEN OTHERS THEN
             NULL;
@@ -84,204 +29,134 @@ BEGIN
 END;
 /
 
--- Create Tables for School Database
+-- Create Tables for Babbage's Cabbage's
+
+-- Employee table Schema
 CREATE TABLE bc_employees 
 (
-    employee_id             NUMBER              NOT NULL,
+    employee_id             INTEGER             NOT NULL,
     last_name               VARCHAR2(50)        NOT NULL,
-    first_name              NUMBER              NOT NULL,
-    hours                   NUMBER              NOT NULL,
-    hourly_rate             NUMBER              NOT NULL,
-    transport_code          VARCHAR2(1)         NOT NULL,
-    CONSTRAINT department_id_pk    PRIMARY KEY (department_id),
-    CONSTRAINT department_name_uq  UNIQUE (department_name)
+    first_name              VARCHAR2(50)        NOT NULL,
+    hours                   NUMBER(4,2)         NOT NULL    CHECK (hours >= 0 AND hours <= 99.99),
+    hourly_rate             NUMBER(4,2)         NOT NULL    CHECK (hourly_rate >= 0 AND hourly_rate <= 99.99),
+    transport_code          VARCHAR2(1)         NOT NULL    CHECK (transport_code IN ('P','T','L','N')),
+    CONSTRAINT employee_id_pk    PRIMARY KEY (employee_id)
 );
 
-CREATE TABLE program
+-- Create Sequence for bc_employees table
+CREATE SEQUENCE bc_employees_id_seq
+    START WITH 1
+    INCREMENT BY 1;
+
+-- Payroll table Schema
+CREATE TABLE bc_payroll
 (
-    program_id          NUMBER              NOT NULL,
-    program_name        VARCHAR2(50)        NOT NULL,
-    program_degree      VARCHAR2(50)        NOT NULL,
-    CONSTRAINT program_id_pk        PRIMARY KEY (program_id),
-    CONSTRAINT program_name_uq      UNIQUE (program_name)
+    employee_id             INTEGER             NOT NULL,
+    reg_hours               NUMBER(4,2)         NOT NULL    CHECK (reg_hours >= 0 AND reg_hours <= 99.99),
+    ovt_hours               NUMBER(4,2)         NOT NULL    CHECK (ovt_hours >= 0 AND ovt_hours <= 99.99),
+    gross_pay               NUMBER(6,2)         NOT NULL    CHECK (gross_pay >= 0 AND gross_pay <= 9999.99),
+    taxes                   NUMBER(5,2)         NOT NULL    CHECK (taxes >= 0 AND taxes <= 999.99),
+    transport_fee           NUMBER(4,2)         NOT NULL    CHECK (transport_fee >= 0 AND transport_fee <= 99.99),
+    net_pay                 NUMBER(6,2)         NOT NULL    CHECK (net_pay >= 0 AND net_pay <= 9999.99),
+    CONSTRAINT bc_payroll_employee_id_pk    PRIMARY KEY (employee_id),
+    CONSTRAINT bc_payroll_employee_id_fk    FOREIGN KEY (employee_id) REFERENCES bc_employees(employee_id)
 );
 
-CREATE TABLE affiliation
-(
-    affiliation_id              NUMBER              NOT NULL,
-    affiliation_title           VARCHAR2(50)        NOT NULL,
-    affiliation_description     VARCHAR2(255)       NOT NULL,
-    CONSTRAINT affiliation_id_pk     PRIMARY KEY (affiliation_id)
-);
+-- Create INSERT INTO statements for bc_employees table
+INSERT INTO bc_employees (employee_id, last_name, first_name, hours, hourly_rate, transport_code)
+VALUES (bc_employees_id_seq.nextval, 'Horsecollar','Horace', 38.00, 12.50, 'P');
+INSERT INTO bc_employees (employee_id, last_name, first_name, hours, hourly_rate, transport_code)
+VALUES (bc_employees_id_seq.nextval, 'Reins','Rachel', 46.50, 14.40, 'T');
+INSERT INTO bc_employees (employee_id, last_name, first_name, hours, hourly_rate, transport_code)
+VALUES (bc_employees_id_seq.nextval, 'Saddle','Samuel', 51.00, 40.00, 'N');
 
-CREATE TABLE college
-(
-    college_id          NUMBER              NOT NULL,
-    college_name        VARCHAR2(50)        NOT NULL,
-    college_address     VARCHAR2(50)        NOT NULL,
-    program_id          NUMBER              NOT NULL,
-    department_id       NUMBER              NOT NULL,
-    CONSTRAINT college_id_pk        PRIMARY KEY (college_id),
-    CONSTRAINT college_program_id_fk         FOREIGN KEY (program_id)    REFERENCES program (program_id),
-    CONSTRAINT college_department_id_pk     FOREIGN KEY (department_id) REFERENCES department (department_id)
-);
+-- Declare variables
+DECLARE
+    employee_id             INTEGER;              
+    last_name               VARCHAR2(50);        
+    first_name              VARCHAR2(50);       
+    hours                   NUMBER(4,2);         
+    hourly_rate             NUMBER(4,2);         
+    transport_code          VARCHAR2(1);
+    reg_hours               NUMBER(4,2);
+    ovt_hours               NUMBER(4,2);
+    gross_pay               NUMBER(7,2);
+    taxes                   NUMBER(7,2);
+    transport_fee           NUMBER(4,2);
+    net_pay                 NUMBER(7,2);
 
-CREATE TABLE users
-(
-    user_id                 NUMBER              NOT NULL,
-    user_password           VARCHAR2(50)        NOT NULL,
-    user_name               VARCHAR2(50)        NOT NULL,
-    user_last_name          VARCHAR2(50)        NOT NULL,
-    user_birthday           DATE                NOT NULL,
-    affiliation_id          NUMBER              NOT NULL,
-    user_phone              VARCHAR2(50),
-    user_email              VARCHAR2(255)       NOT NULL,
-    user_emergency_contact  VARCHAR2(50),
-    user_gender             VARCHAR2(50)        NOT NULL,
-    user_highest_education  VARCHAR2(50),
-    college_id              NUMBER              NOT NULL,
-    user_goals              VARCHAR2(50),
-    user_balance            NUMBER(9,2)                     DEFAULT 0 CHECK (user_balance >= 0),
-    CONSTRAINT user_id_pk           PRIMARY KEY (user_id),
-    CONSTRAINT affiliation_id_fk    FOREIGN KEY (affiliation_id) REFERENCES affiliation (affiliation_id),
-    CONSTRAINT college_id_fk        FOREIGN KEY (college_id)     REFERENCES college (college_id),
-    CONSTRAINT user_email_uq        UNIQUE (user_email)
-);
+-- Declare cursor
+CURSOR employees_cursor IS
+    SELECT employee_id, last_name, first_name, hours, hourly_rate, transport_code
+    FROM bc_employees;
 
-CREATE TABLE forms
-(
-    form_id             NUMBER              NOT NULL,
-    user_id             NUMBER              NOT NULL,
-    form_status         VARCHAR2(50)        NOT NULL,
-    form_date_issued    DATE                NOT NULL,
-    form_resolved       DATE,           
-    form_type           VARCHAR2(50)        NOT NULL,
-    form_payment        NUMBER(9,2)                     DEFAULT 0 CHECK (form_payment >= 0),
-    form_description    VARCHAR2(255),    
-    CONSTRAINT forms_pk         PRIMARY KEY (form_id),
-    CONSTRAINT user_id_fk       FOREIGN KEY (user_id)    REFERENCES users (user_id)
-);
+BEGIN
+    -- Loop
+    FOR employee_record IN employees_cursor LOOP
+        employee_id := employee_record.employee_id;
+        last_name := employee_record.last_name;
+        first_name := employee_record.first_name;
+        hours := employee_record.hours;
+        hourly_rate := employee_record.hourly_rate;
+        transport_code := employee_record.transport_code;
 
-CREATE TABLE course
-(
-    course_id           NUMBER              NOT NULL,
-    acronym             VARCHAR2(50)        NOT NULL,
-    course_name         VARCHAR2(50)        NOT NULL,
-    course_units        NUMBER                          DEFAULT 0,
-    user_id             NUMBER              NOT NULL,
-    course_pre_req      VARCHAR2(50)        NOT NULL,
-    CONSTRAINT course_id_pk         PRIMARY KEY (course_id),
-    CONSTRAINT course_user_id_fk           FOREIGN KEY (user_id)  REFERENCES users (user_id),
-    CONSTRAINT acronym_uq           UNIQUE (acronym)
-);
+        IF (hours <= 40) THEN
+            reg_hours := hours;
+            ovt_hours := 0;
+        ELSE
+            reg_hours := 40;
+            ovt_hours := hours - 40;
+        END IF;
+        
+        -- gross_pay = (regular_hours × hourly_rate) + (overtime_hours × 1.5 × hourly_rate)
+        gross_pay := (reg_hours * hourly_rate) + (ovt_hours * 1.5 * hourly_rate);
 
-CREATE TABLE lecture
-(
-    lecture_id                   NUMBER             NOT NULL,
-    course_id                    NUMBER             NOT NULL,
-    lecture_starting_date        DATE               NOT NULL,
-    lecture_ending_date          DATE               NOT NULL,
-    lecture_room                 VARCHAR2(50)       NOT NULL,
-    lecture_mode                 VARCHAR2(50)       NOT NULL,
-    CONSTRAINT lecture_id_pk        PRIMARY KEY (lecture_id),
-    CONSTRAINT lecture_course_id_fk         FOREIGN KEY (course_id)   REFERENCES course (course_id)
-);
+        -- taxes = 28% × gross_pay
+        taxes := 0.28 * gross_pay;
 
-CREATE TABLE degree
-(
-    degree_id               NUMBER              NOT NULL,
-    degree_title            VARCHAR2(50)        NOT NULL,
-    program_id              NUMBER              NOT NULL,
-    degree_requirements     VARCHAR2(255)       NOT NULL,
-    course_id               NUMBER              NOT NULL,
-    CONSTRAINT degree_id_pk         PRIMARY KEY (degree_id),
-    CONSTRAINT program_id_fk        FOREIGN KEY (program_id)   REFERENCES program (program_id),
-    CONSTRAINT course_id_fk         FOREIGN KEY (course_id)    REFERENCES course (course_id),
-    CONSTRAINT degree_title_uq      UNIQUE (degree_title)
-);
+        -- P: $7.50 / T: $5.00 / L: $1.00 / N: No deduction 
+        CASE transport_code
+            WHEN 'P' THEN
+                transport_fee := 7.50;
+            WHEN 'T' THEN
+                transport_fee := 5.00;
+            WHEN 'L' THEN
+                transport_fee := 1.00;
+            WHEN 'N' THEN
+                transport_fee := 0.00;
+        END CASE;
 
--- Create the sequences
-CREATE SEQUENCE users_id_seq
-  START WITH 1006;
-CREATE SEQUENCE college_id_seq
-  START WITH 10044;
+        -- net_pay = gross_pay − taxes − transport_fee
+        net_pay := gross_pay - taxes - transport_fee;
+        
+        --For testing purposes
+        -- dbms_output.put_line('Employee ID: ' || employee_id);
+        -- dbms_output.put_line('Employee Full Name: ' || last_name || ', ' || first_name);
+        -- dbms_output.put_line('Regular Hours: ' || reg_hours);
+        -- dbms_output.put_line('Overtime Hours: ' || ovt_hours);
+        -- dbms_output.put_line('Gross Pay: ' || gross_pay);
+        -- dbms_output.put_line('Taxes: ' || taxes);
+        -- dbms_output.put_line('Transport Fee: ' || transport_fee);
+        -- dbms_output.put_line('Net Pay: ' || net_pay);
+        -- dbms_output.put_line('----------------------------------------');
 
--- Create INSERT INTO statements for department table
-INSERT INTO department (department_id,department_name,course_id)
-VALUES (1,'Computer Science',11111);
-INSERT INTO department (department_id,department_name,course_id)
-VALUES (2,'Mathematics',22222);
-INSERT INTO department (department_id,department_name,course_id)
-VALUES (3,'Biology',33333);
-
--- Create INSERT INTO statements for program table
-INSERT INTO program (program_id,program_name,program_degree)
-VALUES (12111,'Computer Science','Bachelor');
-INSERT INTO program (program_id,program_name,program_degree)
-VALUES (12122,'Mathematics','Bachelor');
-INSERT INTO program (program_id,program_name,program_degree)
-VALUES (12133,'Biology','Bachelor');
-
--- Create INSERT INTO statements for affiliation table
-INSERT INTO affiliation (affiliation_id,affiliation_title,affiliation_description)
-VALUES (1111111,'Student','student');
-INSERT INTO affiliation (affiliation_id,affiliation_title,affiliation_description)
-VALUES (2222222,'Professor','Professor of Biology');
-INSERT INTO affiliation (affiliation_id,affiliation_title,affiliation_description)
-VALUES (3333333,'Counselor','Course Counselor');
-
--- Create INSERT INTO statements for college table
-INSERT INTO college (college_id,college_name,college_address,program_id,department_id)
-VALUES (10011,'Sacramento City College','3835 Freeport Blvd, Sacramento, CA 95822',12111,1);
-INSERT INTO college (college_id,college_name,college_address,program_id,department_id)
-VALUES (10022,'University of California, Davis','1 Shields Ave, Davis, CA 95616',12122,2);
-INSERT INTO college (college_id,college_name,college_address,program_id,department_id)
-VALUES (10033,'University of California, Berkeley','Berkeley, CA 94720',12133,3);
-
--- Create INSERT INTO statements for users table
-INSERT INTO users (user_id,user_password,user_name,user_last_name,user_birthday,affiliation_id,user_phone,user_email,user_emergency_contact,user_gender,user_highest_education,college_id,user_goals,user_balance)
-VALUES (1001,'pass1001','Arturo','Pardo',TO_DATE('1989-10-30','YYYY-MM-DD'),1111111,'(916) 807-5169','PardoJArturo@gmail.com',NULL,'male','High School',10011,'Graduate',DEFAULT);
-INSERT INTO users (user_id,user_password,user_name,user_last_name,user_birthday,affiliation_id,user_phone,user_email,user_emergency_contact,user_gender,user_highest_education,college_id,user_goals,user_balance)
-VALUES (1002,'pass1002','Jose','Rivas',TO_DATE('1993-01-15','YYYY-MM-DD'),1111111,'(916) 555-5555','JoseRivas@gmail.com',NULL,'male','High School',10011,'Transfer',1000.76);
-INSERT INTO users (user_id,user_password,user_name,user_last_name,user_birthday,affiliation_id,user_phone,user_email,user_emergency_contact,user_gender,user_highest_education,college_id,user_goals,user_balance)
-VALUES (1003,'pass1003','Kevin','Allen',TO_DATE('1995-10-10','YYYY-MM-DD'),1111111,'(916) 636-5333','KevinAllen123@gmail.com','(916) 807-5169','male','High School',10011,'Transfer',124.15);
-INSERT INTO users (user_id,user_password,user_name,user_last_name,user_birthday,affiliation_id,user_phone,user_email,user_emergency_contact,user_gender,user_highest_education,college_id,user_goals,user_balance)
-VALUES (1004,'pass1004','Carlos','Martinez',TO_DATE('2000-12-24','YYYY-MM-DD'),3333333,'(916) 807-3131','CarlosM1331@gmail.com','(916) 871-3333','male','Bachelor',10011,'None',DEFAULT);
-INSERT INTO users (user_id,user_password,user_name,user_last_name,user_birthday,affiliation_id,user_phone,user_email,user_emergency_contact,user_gender,user_highest_education,college_id,user_goals,user_balance)
-VALUES (1005,'pass1005','Karla','Chavez',TO_DATE('1999-05-15','YYYY-MM-DD'),2222222,'(916) 252-3956','HappyKarla@gmail.com',NULL,'female','Bachelor',10022,'None',DEFAULT);
-INSERT INTO users (user_id,user_password,user_name,user_last_name,user_birthday,affiliation_id,user_phone,user_email,user_emergency_contact,user_gender,user_highest_education,college_id,user_goals,user_balance)
-VALUES (1006,'pass1005','Ashley','Berkley',TO_DATE('2001-08-10','YYYY-MM-DD'),1111111,'(916) 111-1244','AshleyB@gmail.com',NULL,'female','Bachelor',10022,'None',DEFAULT);
-
--- Create INSERT INTO statements for forms table
-INSERT INTO forms (form_id,user_id,form_status,form_date_issued,form_resolved,form_type,form_payment,form_description)
-VALUES (0001,1002,'Pending',TO_DATE('2019-10-30','YYYY-MM-DD'),NULL,'Financial Aid',178.05,'I need financial aid');
-INSERT INTO forms (form_id,user_id,form_status,form_date_issued,form_resolved,form_type,form_payment,form_description)
-VALUES (0002,1006,'Pending',TO_DATE('2019-10-30','YYYY-MM-DD'),NULL,'Financial Aid',46.70,'I need financial aid');
-INSERT INTO forms (form_id,user_id,form_status,form_date_issued,form_resolved,form_type,form_payment,form_description)
-VALUES (0003,1001,'Resolved',TO_DATE('2019-10-30','YYYY-MM-DD'),TO_DATE('2019-10-30','YYYY-MM-DD'),'Tuitions',DEFAULT,'N/A');
-INSERT INTO forms (form_id,user_id,form_status,form_date_issued,form_resolved,form_type,form_payment,form_description)
-VALUES (0004,1002,'Cancel',TO_DATE('2019-10-30','YYYY-MM-DD'),NULL,'Exceed Unit',DEFAULT,'None');
-
--- Create INSERT INTO statements for course table
-INSERT INTO course (course_id,acronym,course_name,course_units,user_id,course_pre_req)
-VALUES (11111,'CSC','Computer Science',4,1001,'None');
-INSERT INTO course (course_id,acronym,course_name,course_units,user_id,course_pre_req)
-VALUES (22222,'MATH','Mathematics',3,1002,'None');
-INSERT INTO course (course_id,acronym,course_name,course_units,user_id,course_pre_req)
-VALUES (33333,'BIO','Biology',4,1005,'None');
-
--- Create INSERT INTO statements for lecture table
-INSERT INTO lecture (lecture_id,course_id,lecture_starting_date,lecture_ending_date,lecture_room,lecture_mode)
-VALUES (1111,11111,TO_DATE('2019-10-30','YYYY-MM-DD'),TO_DATE('2019-12-30','YYYY-MM-DD'),'Room 1','Online');
-INSERT INTO lecture (lecture_id,course_id,lecture_starting_date,lecture_ending_date,lecture_room,lecture_mode)
-VALUES (2222,22222,TO_DATE('2019-10-30','YYYY-MM-DD'),TO_DATE('2019-12-30','YYYY-MM-DD'),'Room 2','Online');
-INSERT INTO lecture (lecture_id,course_id,lecture_starting_date,lecture_ending_date,lecture_room,lecture_mode)
-VALUES (3333,33333,TO_DATE('2019-10-30','YYYY-MM-DD'),TO_DATE('2019-12-30','YYYY-MM-DD'),'Room 3','Online');
-
--- Create INSERT INTO statements for degree table
-INSERT INTO degree (degree_id,degree_title,program_id,degree_requirements,course_id)
-VALUES (111111,'Computer Science',12111,'Bachelor',11111);
-INSERT INTO degree (degree_id,degree_title,program_id,degree_requirements,course_id)
-VALUES (222222,'Mathematics',12122,'Bachelor',22222);
-INSERT INTO degree (degree_id,degree_title,program_id,degree_requirements,course_id)
-VALUES (333333,'Biology',12133,'Bachelor',33333);
+        -- Data Validation
+        IF (reg_hours < 0 OR reg_hours > 99.99) THEN
+            dbms_output.put_line('Something Went Wrong during the calculation of a employees Regular Hours');
+        ELSIF (ovt_hours < 0 OR ovt_hours > 99.99) THEN
+            dbms_output.put_line('Something Went Wrong during the calculation of a employees Overtime Hours');
+        ELSIF (gross_pay < 0 OR gross_pay > 9999.99) THEN
+            dbms_output.put_line('Something Went Wrong during the calculation of a employees Gross Pay');
+        ELSIF (taxes < 0 OR taxes > 999.99) THEN
+            dbms_output.put_line('Something Went Wrong during the calculation of a employees Taxes');
+        ELSIF (transport_fee < 0 OR transport_fee > 99.99) THEN
+            dbms_output.put_line('Something Went Wrong during the calculation of a employees Transport Fee');
+        ELSIF (net_pay < 0 OR net_pay > 9999.99) THEN
+            dbms_output.put_line('Something Went Wrong during the calculation of a employees Net Pay');
+        ELSE   
+            --Insert into bc_payroll table
+            INSERT INTO bc_payroll (employee_id, reg_hours, ovt_hours, gross_pay, taxes, transport_fee, net_pay)
+            VALUES (employee_id, reg_hours, ovt_hours, gross_pay, taxes, transport_fee, net_pay);   
+        END IF;
+    END LOOP;
+END;
