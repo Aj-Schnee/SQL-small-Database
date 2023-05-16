@@ -1,162 +1,110 @@
 -- Author     : Arturo Pardo
 -- Professor  : Krofchok
--- Description: You have been hired to design and implement a database-driven solution 
---              written in Oracle PL/SQL that can compute an employee's weekly gross pay, 
---              taxes, and net pay.
+-- Description: Create a new version of the Babbage's Cabbage's program from Assignment #8 
+--              using the modular structures offered by PL/SQL: procedures, functions, and packages.
 
--- Drop Sequence and tables for Babbage's Cabbage's
-BEGIN
-    BEGIN
-        EXECUTE IMMEDIATE 'DROP SEQUENCE bc_employees_id_seq';
-    EXCEPTION
-        WHEN OTHERS THEN
-            NULL;
-    END;
-
-    BEGIN
-        EXECUTE IMMEDIATE 'DROP TABLE bc_payroll';
-    EXCEPTION
-        WHEN OTHERS THEN
-            NULL;
-    END;
-
-    BEGIN
-        EXECUTE IMMEDIATE 'DROP TABLE bc_employees';
-    EXCEPTION
-        WHEN OTHERS THEN
-            NULL;
-    END;
-END;
+-- Declare package bc_pardo 
+CREATE OR REPLACE PACKAGE bc_pardo AS
+  PROCEDURE split_hours(in_hours IN NUMBER, out_reg_hours OUT NUMBER, out_ovt_hours OUT NUMBER);
+  FUNCTION compute_gross_pay(in_hours IN NUMBER, in_hourly_rate IN NUMBER) RETURN NUMBER;
+  FUNCTION compute_taxes(in_gross_pay IN NUMBER) RETURN NUMBER;
+  FUNCTION get_transport_amount(in_code IN CHAR) RETURN NUMBER;
+  FUNCTION compute_net_pay(in_gross_pay IN NUMBER, in_taxes IN NUMBER, in_transport_code IN CHAR) RETURN NUMBER;
+  PROCEDURE process_payroll;
+END bc_pardo;
 /
 
--- Create Tables for Babbage's Cabbage's
+-- Declare package body bc_pardo
+CREATE OR REPLACE PACKAGE BODY bc_pardo AS
 
--- Employee table Schema
-CREATE TABLE bc_employees 
-(
-    employee_id             INTEGER             NOT NULL,
-    last_name               VARCHAR2(50)        NOT NULL,
-    first_name              VARCHAR2(50)        NOT NULL,
-    hours                   NUMBER(4,2)         NOT NULL    CHECK (hours >= 0 AND hours <= 99.99),
-    hourly_rate             NUMBER(4,2)         NOT NULL    CHECK (hourly_rate >= 0 AND hourly_rate <= 99.99),
-    transport_code          VARCHAR2(1)         NOT NULL    CHECK (transport_code IN ('P','T','L','N')),
-    CONSTRAINT employee_id_pk    PRIMARY KEY (employee_id)
-);
+-- Declare Split hours into regular and overtime hours
+  PROCEDURE split_hours(in_hours IN NUMBER, out_reg_hours OUT NUMBER, out_ovt_hours OUT NUMBER) AS
+  BEGIN
+    IF in_hours <= 40 THEN
+      out_reg_hours := in_hours;
+      out_ovt_hours := 0;
+    ELSE
+      out_reg_hours := 40;
+      out_ovt_hours := in_hours - 40;
+    END IF;
+  END split_hours;
 
--- Create Sequence for bc_employees table
-CREATE SEQUENCE bc_employees_id_seq
-    START WITH 1
-    INCREMENT BY 1;
+-- Declare compute gross pay
+  FUNCTION compute_gross_pay(in_hours IN NUMBER, in_hourly_rate IN NUMBER) RETURN NUMBER AS
+    reg_hours NUMBER;
+    ovt_hours NUMBER;
+  BEGIN
+    split_hours(in_hours, reg_hours, ovt_hours);
+    RETURN (reg_hours * in_hourly_rate) + (ovt_hours * 1.5 * in_hourly_rate);
+  END compute_gross_pay;
 
--- Payroll table Schema
-CREATE TABLE bc_payroll
-(
-    employee_id             INTEGER             NOT NULL,
-    reg_hours               NUMBER(4,2)         NOT NULL    CHECK (reg_hours >= 0 AND reg_hours <= 99.99),
-    ovt_hours               NUMBER(4,2)         NOT NULL    CHECK (ovt_hours >= 0 AND ovt_hours <= 99.99),
-    gross_pay               NUMBER(6,2)         NOT NULL    CHECK (gross_pay >= 0 AND gross_pay <= 9999.99),
-    taxes                   NUMBER(5,2)         NOT NULL    CHECK (taxes >= 0 AND taxes <= 999.99),
-    transport_fee           NUMBER(4,2)         NOT NULL    CHECK (transport_fee >= 0 AND transport_fee <= 99.99),
-    net_pay                 NUMBER(6,2)         NOT NULL    CHECK (net_pay >= 0 AND net_pay <= 9999.99),
-    CONSTRAINT bc_payroll_employee_id_pk    PRIMARY KEY (employee_id),
-    CONSTRAINT bc_payroll_employee_id_fk    FOREIGN KEY (employee_id) REFERENCES bc_employees(employee_id)
-);
+-- Declare compute taxes
+  FUNCTION compute_taxes(in_gross_pay IN NUMBER) RETURN NUMBER AS
+  BEGIN
+    RETURN 0.28 * in_gross_pay;
+  END compute_taxes;
 
--- Create INSERT INTO statements for bc_employees table
-INSERT INTO bc_employees (employee_id, last_name, first_name, hours, hourly_rate, transport_code)
-VALUES (bc_employees_id_seq.nextval, 'Horsecollar','Horace', 38.00, 12.50, 'P');
-INSERT INTO bc_employees (employee_id, last_name, first_name, hours, hourly_rate, transport_code)
-VALUES (bc_employees_id_seq.nextval, 'Reins','Rachel', 46.50, 14.40, 'T');
-INSERT INTO bc_employees (employee_id, last_name, first_name, hours, hourly_rate, transport_code)
-VALUES (bc_employees_id_seq.nextval, 'Saddle','Samuel', 51.00, 40.00, 'N');
+-- Declare get transport amount
+  FUNCTION get_transport_amount(in_code IN CHAR) RETURN NUMBER AS
+    transport_fee NUMBER;
+  BEGIN
+    CASE in_code
+      WHEN 'P' THEN
+        transport_fee := 7.50;
+      WHEN 'T' THEN
+        transport_fee := 5.00;
+      WHEN 'L' THEN
+        transport_fee := 1.00;
+      WHEN 'N' THEN
+        transport_fee := 0.00;
+      ELSE
+        RAISE_APPLICATION_ERROR(-20007, 'Transportation code not found');
+    END CASE;
+    RETURN transport_fee;
+  END get_transport_amount;
 
--- Declare variables
-DECLARE
-    employee_id             INTEGER;              
-    last_name               VARCHAR2(50);        
-    first_name              VARCHAR2(50);       
-    hours                   NUMBER(4,2);         
-    hourly_rate             NUMBER(4,2);         
-    transport_code          VARCHAR2(1);
-    reg_hours               NUMBER(4,2);
-    ovt_hours               NUMBER(4,2);
-    gross_pay               NUMBER(7,2);
-    taxes                   NUMBER(7,2);
-    transport_fee           NUMBER(4,2);
-    net_pay                 NUMBER(7,2);
+-- Declare compute net pay
+  FUNCTION compute_net_pay(in_gross_pay IN NUMBER, in_taxes IN NUMBER, in_transport_code IN CHAR) RETURN NUMBER AS
+    transport_fee NUMBER;
+  BEGIN
+    transport_fee := get_transport_amount(in_transport_code);
+    RETURN in_gross_pay - in_taxes - transport_fee;
+  EXCEPTION
+    WHEN OTHERS THEN
+      RETURN NULL;
+  END compute_net_pay;
 
--- Declare cursor
-CURSOR employees_cursor IS
-    SELECT employee_id, last_name, first_name, hours, hourly_rate, transport_code
-    FROM bc_employees;
+-- Declare process payroll
+    PROCEDURE process_payroll IS
+        CURSOR employees_cursor IS
+            SELECT employee_id, last_name, first_name, hours, hourly_rate, transport_code
+            FROM bc_employees;
+        employee_record employees_cursor%ROWTYPE;
+        reg_hours NUMBER;
+        ovt_hours NUMBER;
+        gross_pay NUMBER;
+        taxes NUMBER;
+        transport_fee NUMBER;
+        net_pay NUMBER;
+    BEGIN
+        DELETE FROM bc_payroll;
 
-BEGIN
-    -- Loop
-    FOR employee_record IN employees_cursor LOOP
-        employee_id := employee_record.employee_id;
-        last_name := employee_record.last_name;
-        first_name := employee_record.first_name;
-        hours := employee_record.hours;
-        hourly_rate := employee_record.hourly_rate;
-        transport_code := employee_record.transport_code;
-
-        IF (hours <= 40) THEN
-            reg_hours := hours;
+        FOR employee IN employees_cursor LOOP
+            reg_hours := employee.hours;
             ovt_hours := 0;
-        ELSE
-            reg_hours := 40;
-            ovt_hours := hours - 40;
-        END IF;
-        
-        -- gross_pay = (regular_hours × hourly_rate) + (overtime_hours × 1.5 × hourly_rate)
-        gross_pay := (reg_hours * hourly_rate) + (ovt_hours * 1.5 * hourly_rate);
 
-        -- taxes = 28% × gross_pay
-        taxes := 0.28 * gross_pay;
+            IF reg_hours > 40 THEN
+                reg_hours := 40;
+                ovt_hours := reg_hours - 40;
+            END IF;
 
-        -- P: $7.50 / T: $5.00 / L: $1.00 / N: No deduction 
-        CASE transport_code
-            WHEN 'P' THEN
-                transport_fee := 7.50;
-            WHEN 'T' THEN
-                transport_fee := 5.00;
-            WHEN 'L' THEN
-                transport_fee := 1.00;
-            WHEN 'N' THEN
-                transport_fee := 0.00;
-        END CASE;
+            gross_pay := reg_hours * employee.hourly_rate + ovt_hours * 1.5 * employee.hourly_rate;
+            taxes := 0.28 * gross_pay;
+            transport_fee := get_transport_amount(employee.transport_code);
+            net_pay := gross_pay - taxes - transport_fee;
 
-        -- net_pay = gross_pay − taxes − transport_fee
-        net_pay := gross_pay - taxes - transport_fee;
-        
-        --For testing purposes
-        -- dbms_output.put_line('Employee ID: ' || employee_id);
-        -- dbms_output.put_line('Employee Full Name: ' || last_name || ', ' || first_name);
-        -- dbms_output.put_line('Regular Hours: ' || reg_hours);
-        -- dbms_output.put_line('Overtime Hours: ' || ovt_hours);
-        -- dbms_output.put_line('Gross Pay: ' || gross_pay);
-        -- dbms_output.put_line('Taxes: ' || taxes);
-        -- dbms_output.put_line('Transport Fee: ' || transport_fee);
-        -- dbms_output.put_line('Net Pay: ' || net_pay);
-        -- dbms_output.put_line('----------------------------------------');
-
-        -- Data Validation
-        IF (reg_hours < 0 OR reg_hours > 99.99) THEN
-            dbms_output.put_line('Something Went Wrong during the calculation of a employees Regular Hours');
-        ELSIF (ovt_hours < 0 OR ovt_hours > 99.99) THEN
-            dbms_output.put_line('Something Went Wrong during the calculation of a employees Overtime Hours');
-        ELSIF (gross_pay < 0 OR gross_pay > 9999.99) THEN
-            dbms_output.put_line('Something Went Wrong during the calculation of a employees Gross Pay');
-        ELSIF (taxes < 0 OR taxes > 999.99) THEN
-            dbms_output.put_line('Something Went Wrong during the calculation of a employees Taxes');
-        ELSIF (transport_fee < 0 OR transport_fee > 99.99) THEN
-            dbms_output.put_line('Something Went Wrong during the calculation of a employees Transport Fee');
-        ELSIF (net_pay < 0 OR net_pay > 9999.99) THEN
-            dbms_output.put_line('Something Went Wrong during the calculation of a employees Net Pay');
-        ELSE   
-            --Insert into bc_payroll table
             INSERT INTO bc_payroll (employee_id, reg_hours, ovt_hours, gross_pay, taxes, transport_fee, net_pay)
-            VALUES (employee_id, reg_hours, ovt_hours, gross_pay, taxes, transport_fee, net_pay);   
-        END IF;
-    END LOOP;
-END;
+            VALUES (employee.employee_id, reg_hours, ovt_hours, gross_pay, taxes, transport_fee, net_pay);
+        END LOOP;
+    END process_payroll;
+END bc_pardo;
